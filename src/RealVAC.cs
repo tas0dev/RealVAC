@@ -7,73 +7,97 @@ namespace RealVAC;
 
 public sealed class RealVac : BasePlugin
 {
-    private readonly TraceService _traceService = new();
-    private readonly Dictionary<(int Viewer, int Target), bool> _lastVisibility = new();
+	private readonly MovementPredictor _movementPredictor;
+	private readonly TraceService _traceService;
 
-    public override string ModuleName => "RealVAC";
-    public override string ModuleVersion => "0.1.0";
+	private readonly Dictionary<(int Viewer, int Target), bool> _lastVisibility = new();
 
-    public override void Load(bool hotReload)
-    {
-        RegisterListener<Listeners.CheckTransmit>(
-            (infoList) =>
-            {
-                var players = Utilities.GetPlayers();
+	public override string ModuleName => "RealVAC";
+	public override string ModuleVersion => "0.1.0";
 
-                foreach ((CCheckTransmitInfo info, CCSPlayerController? viewer) in infoList)
-                {
-                    if (viewer == null || !viewer.IsValid)
-                        continue;
+	public RealVac()
+	{
+		_movementPredictor = new MovementPredictor();
+		_traceService = new TraceService(_movementPredictor)
+		{
+			PredictionTime = 0.2f
+		};
+	}
 
-                    var transmitEntities = info.TransmitEntities;
+	public override void Load(bool hotReload)
+	{
+		RegisterListener<Listeners.OnTick>(() =>
+		{
+			double now = Server.CurrentTime;
 
-                    foreach (var target in players)
-                    {
-                        if (!target.IsValid)
-                            continue;
+			foreach (var player in Utilities.GetPlayers())
+			{
+				if (!player.IsValid)
+					continue;
 
-                        if (!target.Pawn.IsValid)
-                            continue;
+				_movementPredictor.Update(player, now);
+			}
+		});
 
-                        if (target.Slot == viewer.Slot)
-                            continue;
+		RegisterListener<Listeners.CheckTransmit>(
+			(CCheckTransmitInfoList infoList) =>
+			{
+				var players = Utilities.GetPlayers();
 
-                        if (target.Team == viewer.Team)
-                            continue;
+				foreach ((CCheckTransmitInfo info, CCSPlayerController? viewer) in infoList)
+				{
+					if (viewer == null || !viewer.IsValid)
+						continue;
 
-                        bool visible = _traceService.HasLineOfSight(
-                            viewer,
-                            target
-                        );
+					var transmitEntities = info.TransmitEntities;
 
-                        var key = (
-                            Viewer: viewer.Slot,
-                            Target: target.Slot
-                        );
+					foreach (var target in players)
+					{
+						if (!target.IsValid)
+							continue;
 
-                        if (
-                            !_lastVisibility.TryGetValue(
-                                key,
-                                out bool lastVisible
-                            )
-                            || lastVisible != visible
-                        )
-                        {
-                            Logger.LogInformation(
-                                "{Viewer} -> {Target}: {State}",
-                                viewer.PlayerName,
-                                target.PlayerName,
-                                visible ? "VISIBLE" : "HIDDEN"
-                            );
+						if (!target.Pawn.IsValid)
+							continue;
 
-                            _lastVisibility[key] = visible;
-                        }
+						if (target.Slot == viewer.Slot)
+							continue;
 
-                        if (!visible)
-                            transmitEntities.Remove(target.Pawn.Index);
-                    }
-                }
-            }
-        );
-    }
+						if (target.Team == viewer.Team)
+							continue;
+
+						bool visible = _traceService.HasLineOfSight(
+							viewer,
+							target
+						);
+
+						var key = (
+							Viewer: viewer.Slot,
+							Target: target.Slot
+						);
+
+						if (
+							!_lastVisibility.TryGetValue(
+								key,
+								out bool lastVisible
+							)
+							|| lastVisible != visible
+						)
+						{
+							Logger.LogInformation(
+								"{Viewer} -> {Target}: {State}",
+								viewer.PlayerName,
+								target.PlayerName,
+								visible ? "VISIBLE" : "HIDDEN"
+							);
+
+							_lastVisibility[key] = visible;
+						}
+
+						if (!visible)
+							transmitEntities.Remove(target.Pawn.Index);
+					}
+				}
+			}
+		);
+	}
 }

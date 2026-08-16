@@ -11,6 +11,15 @@ public sealed class TraceService
 	private static PluginCapability<CRayTraceInterface> RayTraceInterface { get; } =
 		new("raytrace:craytraceinterface");
 
+	private readonly MovementPredictor _movementPredictor;
+
+	public float PredictionTime { get; set; } = 0.2f;
+
+	public TraceService(MovementPredictor movementPredictor)
+	{
+		_movementPredictor = movementPredictor;
+	}
+
 	public bool HasLineOfSight(
 		CCSPlayerController viewer,
 		CCSPlayerController target
@@ -30,70 +39,111 @@ public sealed class TraceService
 		if (viewerPawn.AbsOrigin == null || targetPawn.AbsOrigin == null)
 			return true;
 
-		var start = new Vector(
+		var currentViewerPosition = new Vector(
 			viewerPawn.AbsOrigin.X,
 			viewerPawn.AbsOrigin.Y,
-			viewerPawn.AbsOrigin.Z + viewerPawn.ViewOffset.Z
+			viewerPawn.AbsOrigin.Z
 		);
 
-		var targetOrigin = targetPawn.AbsOrigin;
+		var currentTargetPosition = new Vector(
+			targetPawn.AbsOrigin.X,
+			targetPawn.AbsOrigin.Y,
+			targetPawn.AbsOrigin.Z
+		);
 
-		float yawRadians = targetPawn.EyeAngles.Y * (MathF.PI / 180.0f);
+		if (HasLineOfSightAtPositions(
+			currentViewerPosition,
+			currentTargetPosition,
+			viewerPawn,
+			targetPawn
+		))
+		{
+			return true;
+		}
+
+		var predictedViewerPosition =
+			_movementPredictor.PredictPosition(
+				viewer,
+				PredictionTime
+			);
+
+		var predictedTargetPosition =
+			_movementPredictor.PredictPosition(
+				target,
+				PredictionTime
+			);
+
+		return HasLineOfSightAtPositions(
+			predictedViewerPosition,
+			predictedTargetPosition,
+			viewerPawn,
+			targetPawn
+		);
+	}
+
+	private bool HasLineOfSightAtPositions(
+		Vector viewerPosition,
+		Vector targetPosition,
+		CCSPlayerPawn viewerPawn,
+		CCSPlayerPawn targetPawn
+	)
+	{
+		var start = new Vector(
+			viewerPosition.X,
+			viewerPosition.Y,
+			viewerPosition.Z + viewerPawn.ViewOffset.Z
+		);
+
+		float yawRadians =
+			targetPawn.EyeAngles.Y * (MathF.PI / 180.0f);
 
 		float rightX = -MathF.Sin(yawRadians);
 		float rightY = MathF.Cos(yawRadians);
 
-		const float shoulderOffset = 20.0f;
+		const float shoulderOffset = 16.0f;
 
 		var points = new[]
 		{
-			// Head
 			new Vector(
-				targetOrigin.X,
-				targetOrigin.Y,
-				targetOrigin.Z + 64.0f
+				targetPosition.X,
+				targetPosition.Y,
+				targetPosition.Z + 64.0f
 			),
 
-			// Upper body
 			new Vector(
-				targetOrigin.X,
-				targetOrigin.Y,
-				targetOrigin.Z + 52.0f
+				targetPosition.X,
+				targetPosition.Y,
+				targetPosition.Z + 52.0f
 			),
 
-			// Chest
 			new Vector(
-				targetOrigin.X,
-				targetOrigin.Y,
-				targetOrigin.Z + 40.0f
+				targetPosition.X,
+				targetPosition.Y,
+				targetPosition.Z + 40.0f
 			),
 
-			// Left shoulder
 			new Vector(
-				targetOrigin.X - rightX * shoulderOffset,
-				targetOrigin.Y - rightY * shoulderOffset,
-				targetOrigin.Z + 40.0f
+				targetPosition.X - rightX * shoulderOffset,
+				targetPosition.Y - rightY * shoulderOffset,
+				targetPosition.Z + 40.0f
 			),
 
-			// Right shoulder
 			new Vector(
-				targetOrigin.X + rightX * shoulderOffset,
-				targetOrigin.Y + rightY * shoulderOffset,
-				targetOrigin.Z + 40.0f
+				targetPosition.X + rightX * shoulderOffset,
+				targetPosition.Y + rightY * shoulderOffset,
+				targetPosition.Z + 40.0f
 			),
 
-			// Lower body
 			new Vector(
-				targetOrigin.X,
-				targetOrigin.Y,
-				targetOrigin.Z + 20.0f
+				targetPosition.X,
+				targetPosition.Y,
+				targetPosition.Z + 20.0f
 			),
 
-			// Feet
 			new Vector(
-				targetOrigin.X,
-				targetOrigin.Y,
-				targetOrigin.Z + 8.0f
+				targetPosition.X,
+				targetPosition.Y,
+				targetPosition.Z + 8.0f
 			)
 		};
 
