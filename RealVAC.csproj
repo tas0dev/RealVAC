@@ -12,4 +12,11 @@
       <PackageReference Include="CS2TraceRay" Version="1.0.9" />
     </ItemGroup>
 
+    <ItemGroup>
+        <Reference Include="RayTraceApi">
+            <HintPath>libs/RayTraceApi.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+    </ItemGroup>
+
 </Project>
