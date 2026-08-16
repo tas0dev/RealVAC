@@ -8,95 +8,130 @@ namespace RealVAC.Visibility;
 
 public sealed class TraceService
 {
-    private static PluginCapability<CRayTraceInterface> RayTraceInterface { get; }
-        = new("raytrace:craytraceinterface");
+	private static PluginCapability<CRayTraceInterface> RayTraceInterface { get; } =
+		new("raytrace:craytraceinterface");
 
-    public bool HasLineOfSight(
-        CCSPlayerController viewer,
-        CCSPlayerController target
-    )
-    {
-        var rayTrace = RayTraceInterface.Get();
+	public bool HasLineOfSight(
+		CCSPlayerController viewer,
+		CCSPlayerController target
+	)
+	{
+		var rayTrace = RayTraceInterface.Get();
 
-        if (rayTrace == null)
-        {
-            Console.WriteLine("[RealVAC] RayTraceInterface is NULL");
-            return true;
-        }
+		if (rayTrace == null)
+			return true;
 
-        var viewerPawn = viewer.PlayerPawn.Value;
-        var targetPawn = target.PlayerPawn.Value;
+		var viewerPawn = viewer.PlayerPawn.Value;
+		var targetPawn = target.PlayerPawn.Value;
 
-        if (viewerPawn == null || targetPawn == null)
-            return true;
+		if (viewerPawn == null || targetPawn == null)
+			return true;
 
-        if (viewerPawn.AbsOrigin == null || targetPawn.AbsOrigin == null)
-            return true;
+		if (viewerPawn.AbsOrigin == null || targetPawn.AbsOrigin == null)
+			return true;
 
-        var start = new Vector(
-            viewerPawn.AbsOrigin.X,
-            viewerPawn.AbsOrigin.Y,
-            viewerPawn.AbsOrigin.Z + viewerPawn.ViewOffset.Z
-        );
+		var start = new Vector(
+			viewerPawn.AbsOrigin.X,
+			viewerPawn.AbsOrigin.Y,
+			viewerPawn.AbsOrigin.Z + viewerPawn.ViewOffset.Z
+		);
 
-        var targetOrigin = targetPawn.AbsOrigin;
+		var targetOrigin = targetPawn.AbsOrigin;
 
-        var points = new[]
-        {
-            new Vector(
-                targetOrigin.X,
-                targetOrigin.Y,
-                targetOrigin.Z + 64.0f
-            ),
+		float yawRadians = targetPawn.EyeAngles.Y * (MathF.PI / 180.0f);
 
-            new Vector(
-                targetOrigin.X,
-                targetOrigin.Y,
-                targetOrigin.Z + 40.0f
-            ),
+		float rightX = -MathF.Sin(yawRadians);
+		float rightY = MathF.Cos(yawRadians);
 
-            new Vector(
-                targetOrigin.X,
-                targetOrigin.Y,
-                targetOrigin.Z + 8.0f
-            )
-        };
+		const float shoulderOffset = 16.0f;
 
-        foreach (var point in points)
-        {
-            if (CanTrace(start, point, viewerPawn))
-                return true;
-        }
+		var points = new[]
+		{
+			// Head
+			new Vector(
+				targetOrigin.X,
+				targetOrigin.Y,
+				targetOrigin.Z + 64.0f
+			),
 
-        return false;
-    }
+			// Upper body
+			new Vector(
+				targetOrigin.X,
+				targetOrigin.Y,
+				targetOrigin.Z + 52.0f
+			),
 
-    private bool CanTrace(
-        Vector start,
-        Vector end,
-        CCSPlayerPawn viewerPawn
-    )
-    {
-        var rayTrace = RayTraceInterface.Get();
+			// Chest
+			new Vector(
+				targetOrigin.X,
+				targetOrigin.Y,
+				targetOrigin.Z + 40.0f
+			),
 
-        if (rayTrace == null)
-            return true;
+			// Left shoulder
+			new Vector(
+				targetOrigin.X - rightX * shoulderOffset,
+				targetOrigin.Y - rightY * shoulderOffset,
+				targetOrigin.Z + 40.0f
+			),
 
-        TraceOptions options = new(
-            InteractionLayers.MASK_WORLD_ONLY,
-        );
+			// Right shoulder
+			new Vector(
+				targetOrigin.X + rightX * shoulderOffset,
+				targetOrigin.Y + rightY * shoulderOffset,
+				targetOrigin.Z + 40.0f
+			),
 
-        bool hit = rayTrace.TraceEndShape(
-            start,
-            end,
-            viewerPawn,
-            options,
-            out TraceResult result
-        );
+			// Lower body
+			new Vector(
+				targetOrigin.X,
+				targetOrigin.Y,
+				targetOrigin.Z + 20.0f
+			),
 
-        if (!hit)
-            return true;
+			// Feet
+			new Vector(
+				targetOrigin.X,
+				targetOrigin.Y,
+				targetOrigin.Z + 8.0f
+			)
+		};
 
-        return result.Fraction >= 0.99f;
-    }
+		foreach (var point in points)
+		{
+			if (CanTrace(start, point, viewerPawn))
+				return true;
+		}
+
+		return false;
+	}
+
+	private bool CanTrace(
+		Vector start,
+		Vector end,
+		CCSPlayerPawn viewerPawn
+	)
+	{
+		var rayTrace = RayTraceInterface.Get();
+
+		if (rayTrace == null)
+			return true;
+
+		TraceOptions options = new(
+			InteractionLayers.MASK_WORLD_ONLY
+		);
+
+		bool hit = rayTrace.TraceEndShape(
+			start,
+			end,
+			viewerPawn,
+			options,
+			out TraceResult result
+		);
+
+		if (!hit)
+			return true;
+
+		return result.Fraction >= 0.99f;
+	}
 }
