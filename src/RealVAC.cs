@@ -10,38 +10,34 @@ public sealed class RealVac : BasePlugin
 
     public override void Load(bool hotReload)
     {
-        RegisterListener<Listeners.CheckTransmit>(OnCheckTransmit);
-    }
-
-    private void OnCheckTransmit(CCheckTransmitInfoList infoList)
-    {
-        var players = Utilities.GetPlayers();
-
-        foreach ((CCheckTransmitInfo info, CCSPlayerController? viewer) in infoList)
+        RegisterListener<Listeners.CheckTransmit>(infoList =>
         {
-            if (viewer == null || !viewer.IsValid)
-                continue;
+            var players = Utilities.GetPlayers();
 
-            foreach (var target in players)
+            foreach ((CCheckTransmitInfo info, CCSPlayerController? viewer) in infoList)
             {
-                if (!target.IsValid)
+                if (viewer == null || !viewer.IsValid)
                     continue;
 
-                if (target.Slot == viewer.Slot)
-                    continue;
+                var transmitEntities = info.TransmitEntities;
 
-                if (target.Team == viewer.Team)
-                    continue;
+                foreach (var target in players)
+                {
+                    if (!target.IsValid)
+                        continue;
 
-                if (!target.Pawn.IsValid)
-                    continue;
+                    if (!target.Pawn.IsValid)
+                        continue;
 
-                var pawn = target.PlayerPawn.Value;
+                    if (target.Slot == viewer.Slot)
+                        continue;
 
-                if (pawn == null || !pawn.IsValid) continue;
+                    if (target.Team == viewer.Team)
+                        continue;
 
-                info.TransmitEntities.Remove(pawn);
+                    transmitEntities.Remove(target.Pawn.Index);
+                }
             }
-        }
+        });
     }
 }
