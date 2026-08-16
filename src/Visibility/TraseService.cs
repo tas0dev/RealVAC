@@ -82,9 +82,8 @@ public sealed class TraceService
         if (rayTrace == null)
             return true;
 
-        RayTraceAPI.TraceOptions options = new(
-            RayTraceAPI.InteractionLayers.MASK_WORLD_ONLY,
-            drawBeam: true
+        TraceOptions options = new(
+            InteractionLayers.MASK_WORLD_ONLY,
         );
 
         bool hit = rayTrace.TraceEndShape(
@@ -92,13 +91,7 @@ public sealed class TraceService
             end,
             viewerPawn,
             options,
-            out RayTraceAPI.TraceResult result
-        );
-
-        Console.WriteLine(
-            $"[RealVAC] hit={hit} fraction={result.Fraction:F3} " +
-            $"start=({start.X:F1},{start.Y:F1},{start.Z:F1}) " +
-            $"end=({end.X:F1},{end.Y:F1},{end.Z:F1})"
+            out TraceResult result
         );
 
         if (!hit)
