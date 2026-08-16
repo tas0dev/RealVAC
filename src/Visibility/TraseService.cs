@@ -43,7 +43,7 @@ public sealed class TraceService
 		float rightX = -MathF.Sin(yawRadians);
 		float rightY = MathF.Cos(yawRadians);
 
-		const float shoulderOffset = 16.0f;
+		const float shoulderOffset = 20.0f;
 
 		var points = new[]
 		{
